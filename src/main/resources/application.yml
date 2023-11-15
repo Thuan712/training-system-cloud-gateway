@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: gateway-service
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+  redis:
+    host:
+      localhost
+    port: 6379
+    password:
+  reactor:
+    logging:
+      fallback: JDK
+  cloud:
+    gateway:
+      restrictive-property-accessor:
+        enabled: false
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowCredentials: false
+            allowedOrigins: ["http://localhost:8081", "http://localhost:3005"]
+            allowedOriginPatterns: "*"
+            allowedHeaders: "*"
+            allowedMethods:
+              - OPTIONS
+              - HEAD
+              - GET
+              - POST
+              - DELETE
+        add-to-simple-url-handler-mapping: true
+
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: backend
+          uri: lb://backend-eureka-feign-cloud
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 120
+                redis-rate-limiter.burstCapacity: 120
+                redis-rate-limiter.requestedTokens: 1
+          predicates:
+            - Path=/backend/api/**
+        - id: websocket-service
+          uri: lb://backend-eureka-feign-cloud
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+          predicates:
+            - Path=/websocket/info/**
+        - id: websocket
+          uri: lb://backend-eureka-feign-cloud
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+          predicates:
+            - Path=/websocket/**
+    discovery:
+      enabled: true
+server:
+  port: 8080
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    serviceURL:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
+management:
+  endpoint:
+    gateway:
+      enabled: true
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: gateway
+      base-path: /actuator
+  health:
+    redis:
+      enabled: true
